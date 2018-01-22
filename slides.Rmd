@@ -4,17 +4,17 @@ author: "Davide Risso"
 date: "24/01/2018"
 output:
   beamer_presentation:
+    fig_caption: no
     includes:
       in_header: template.tex
     toc: yes
-    keep_tex: no
+bibliography: biblio.bib
 ---
 
 # Introduction
 
 ```{r options, include=FALSE}
-knitr::opts_chunk$set(cache=TRUE, error=FALSE, message=FALSE, warning=FALSE,
-                      echo=FALSE, results="markup")
+knitr::opts_chunk$set(cache=TRUE, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE, results="markup")
 library(RColorBrewer)
 library(EDASeq)
 library(DESeq2)
@@ -25,9 +25,9 @@ library(edgeR)
 
 ## What we will cover
 
-We will cover differential expression analysis of RNA-seq data in _R/Bioconductor_.
+I will give you a _brief_ introduction to the _statistical analysis of RNA-seq_.
 
-I'm assuming familiarity with the R programming language for the examples.
+We will focus on differential expression analysis using _R/Bioconductor_.
 
 We will start from a _matrix of gene-level read counts_.
 
@@ -36,6 +36,10 @@ We will cover the two most popular packages, `DESeq2` and `edgeR`.
 I will also show you how to deal with unwanted variation using the `RUVSeq` package.
 
 ## What we will not cover
+
+I will not show you the R code, but _focus on the statistical concepts_.
+
+The R code that I used for the plots in these slides is available online at [https://github.com/drisso/canazei](github.com/drisso/canazei).
 
 Only in Bioconductor, there are 150 packages for QC/EDA, 69 for normalization, and 241 for differential expression! 
 
@@ -60,11 +64,11 @@ fc <- read.table(paste0(data_dir, "Peixoto_CC_FC_RT.txt"), row.names=1, header=T
 negControls <- read.table(paste0(data_dir, "Peixoto_NegativeControls.txt"), sep='\t', header=TRUE, as.is=TRUE)
 positive <- read.table(paste0(data_dir, "Peixoto_positive_controls.txt"), as.is=TRUE, sep='\t', header=TRUE)
 
-x <- as.factor(rep(c("CC", "FC", "RT"), each=5))
-names(x) <- colnames(fc)
+x <- x_orig <- as.factor(rep(c("CC", "FC", "RT"), each=5))
+names(x) <- names(x_orig) <- colnames(fc)
 
 filter <- apply(fc, 1, function(x) length(x[which(x>10)])>5)
-filtered <- as.matrix(fc)[filter,]
+filtered <- filtered_orig <- as.matrix(fc)[filter,]
 head(filtered)
 ```
 
@@ -79,6 +83,8 @@ head(filtered)
 - Illumina 100bp paired-end reads mapped to the mouse genome (mm9) using GMAP/GSNAP.
 - Ensembl (release 65) gene counts obtained using HTSeq.
 
+\source{Peixoto et al. (2015). NAR.}
+
 # Exploratory Data Analysis
 
 ```{r}
@@ -92,27 +98,261 @@ colors <- brewer.pal(9, "Set1")
 colLib <- colors[x]
 ```
 
-## Exploratory Data Analysis
+## Exploratory Data Analysis (EDA)
+
+_Exploratory Data Analysis_ (EDA) is a key step of any data analysis and of statistical practice in general.
+
+Before formally modeling the data, the dataset must be examined to get a "first impression" of the data and to reveal expected and unexpected characteristics of the data.
+
+It is also useful to examine the data for outlying observations and to check the plausibility of the assumptions of candidate statistical models.
+
+## EDA of Gene Expression Data
+
+We will cover three important graphical summaries of the data, extremely useful for EDA.
+
+- Boxplots
+- Relative Log Expression (RLE) plots
+- Principal Component Analysis (PCA)
+
+## Boxplots
+
+The boxplot, also called _box-and-whisker plot_ was first introduced by Tukey in 1977 as a graphical summary of a variable's distribution.
+
+It is a graphical representation of the median, upper and lower quartile, and the range (possibly, with outliers).
+
+## Boxplots
+
+```{r, echo=FALSE}
+ex <- c(rnorm(100), c(-4, 5))
+boxplot(ex)
+```
+
+## Boxplot
+
+- The bold line represents the _median_.
+- The upper and lower sides of the box represent the lower and upper quartiles, respectively.
+- The central box represents the _inter-quartile range_ (IQR).
+- The whiskers represent the range of the variable, but any point more than 1.5 IQR above the upper quartile (or below the lower quartile) are plotted individually as _outliers_.
+- Comparing the distances between the quartiles and the median gives indication of the symmetry of the distribution.
+
+## Quantiles
+
+The median, upper-quartile, and lower-quartile are examples of _quantiles_.
+
+More formally, the $f$ _quantile_ or $f\times 100$th _percentile_ of a distribution is the smallest number $q$ such that at least $f \times 100$\% of the observations are less than or equal to $q$.
+
+In other words, $f\times 100$\% of the area under the histogram is to the left of the $f$ quantile.
+
+_Quartiles._
+\begin{tabular}{ll}
+\emph{First/lower quartile} & 0.25 quantile\\
+\emph{Second quartile/median} & 0.50 quantile\\
+\emph{Third/upper quartile} & 0.75 quantile
+\end{tabular}
+
+## Linear vs Log Scale
+
+Because gene expression data have a skewed distribution, we prefer to transform the data using the logarithm (usually $log_2$) _for visualization and exploration_.
+
+To avoid problems with zero values, it is common to add a small constant (usually 1) before the transformation ($log(x+1)$).
+
+## Example: Boxplot of log-counts
+
+```{r}
+boxplot(log(filtered+1), col=colLib)
+```
 
 ## Relative Log Expression (RLE)
 
-## Principal Component Analysis
+A particularly useful transformation of read counts is their _relative log expression_ (RLE).
+
+For each gene, we take the _log-ratio_ of a read count to the _median_ count _across samples_.
+
+Comparable samples should have _similar RLE distributions_ centered around zero. 
+
+Unusual RLE distributions could reveal suspicious samples (e.g., problematic library preparation) or batch effects.
+
+## Example: RLE plots
+
+```{r}
+plotRLE(filtered, outline=FALSE, col=colLib)
+```
+
+## Dimensionality Reduction
+
+In genomic settings, the number of genes (variables) $J$ is often in the tens of thousands and the sample size $n \ll J$.
+
+_Dimensionality reduction_, i.e., representing the data using _fewer than_ $J$ variables, is useful for _summarizing_ and _visualizing_ the data.
+
+A variety of often related approaches can be used; here, we focus on _Principal component analysis_ (PCA).
+
+<!-- replaces the original variables by fewer _orthogonal linear combinations_ of these variables, with successively _maximal variance_. -->
+
+## Principal Component Analysis (PCA)
+
+PCA is a dimensionality reduction technique that provides a parsimonious summarization of the data by replacing the original variables by fewer _linear combinations_ of these variables, that are _orthogonal_ and have successively _maximal variance_.
+
+Such linear combinations seek to "separate out" the observations, while loosing as little information as possible.
+
+## Example: PCA
+
+```{r}
+plotPCA(filtered, labels=TRUE, col=colLib, cex=2)
+```
 
 # Normalization
 
-## Accounting for sequencing depth
+## Sequencing and systematic biases
 
-## Upper-quartile
+RNA-seq experiments are inherently stochastic, with reads being randomly sampled from a pool of amplified cDNA molecules.
 
-## Trimmed Mean of M-values (TMM)
+Typically, the interest is the expression level of each gene i, i.e., the _relative abundance_ of mRNA molecules for a gene within the population of mRNA molecules in each sample.
 
-## The DESeq normalization
+There are several experimental sources of systematic biases that can affect measurements of gene expression and thus require normalization, including gene- and sample-specific features. 
+
+Accordingly, we distinguish between two types of normalization:
+
+- _within-sample normalization_ removes gene-specific biases (e.g., due to GC-content)
+- _between-sample normalization_ adjusts for effects related to distribu- tional differences in read counts between samples.
+
+## Between-sample normalization
+
+Between-sample normalization is needed because the number of sequenced reads vary between samples as a result of differences in _sequencing depth_, i.e., total number of reads produced in a given lane.
+
+The simplest approach is to simply _divide each count by the total number of reads in the sample_.
+
+This is sometimes called _total count normalization_ and is employed in popular summaries such as _FPKM_ and _TPM_.
+
+## Between-sample normalization
+
+In the context of differential expression, total count normalization is not optimal, as the total number of reads can be dominated by a handful of highly expressed genes, which can bias downstream results.
+
+A more robust alternative is _upper-quartile normalization_ (UQ), which divide the read counts by the 75th percentile of the distribution of the read counts.
+
+## Between-sample normalization
+
+In the context of differential expression, two approaches are the most popular and have been demonstrated to work well in practice.
+
+_Geometric mean scaling_. Default in the _DESeq2_ package.
+
+_Trimmed Mean of M-values_ (TMM). Default in the _edgeR_ package.
+
+Both approaches compute _normalization factors_ by comparing the samples to a _reference sample_.
+
+Normalization factors are then adjusted to multiply to 1.
+
+## Geometric mean scaling
+
+Reference sample: the geometric mean of all samples.
+
+Normalization factors are computed by the _median ratio_ of each sample to the reference sample.
+
+## TMM
+
+Reference sample: the sample whose upper quartile is closest to the mean upper quartile.
+
+Normalization factors are computed by the _weighted mean log-ratio_ of each sample to the reference sample, after trimming away genes with extreme log-ratios.
+
+## Example: normalization factors
+
+```{r}
+tmm <- calcNormFactors(filtered, method="TMM")
+deseq <- calcNormFactors(filtered, method="RLE")
+plot(tmm, deseq, col=colLib, pch=19, xlab="TMM", ylab="Geo Mean", cex=1.5)
+abline(0, 1)
+```
+
+## Evaluating effectiveness of normalization
+
+```{r}
+norm <- betweenLaneNormalization(filtered, which="upper")
+plotRLE(norm, outline=FALSE, col=colLib)
+```
+
+## Evaluating effectiveness of normalization
+
+```{r}
+plotPCA(norm, labels=TRUE, col=colLib, cex=1.5)
+```
+
+## Evaluating effectiveness of normalization
+
+Even after normalization, the distribution of the RLE and the PCA are not great.
+
+From the PCA we see that experiments carried out at day 3 and 8 are not quite like the others.
+
+We may decide to exclude these samples from the analysis.
+
+## Evaluating effectiveness of normalization
+
+```{r}
+idx <- grep("[3,8]", colnames(fc), invert = TRUE)
+filter <- apply(fc[, idx], 1, function(x) length(x[which(x>10)])>5)
+filtered <- as.matrix(fc)[filter, idx]
+
+x <- as.factor(rep(c("CC", "FC", "RT"), each=3))
+names(x) <- colnames(filtered)
+colLib <- colors[x]
+norm <- betweenLaneNormalization(filtered, which="upper")
+
+plotRLE(norm, col=colLib, outline=FALSE)
+```
+
+## Evaluating effectiveness of normalization
+
+```{r}
+plotPCA(norm, labels=TRUE, col=colLib, cex=1.5)
+```
 
 # Differential Expression
 
+## Differential Expression
+
+In most applications, we are interested in finding which genes are _differentially expressed_ between two or more conditions.
+
+The most popular approaches involve testing _one gene at the time_, whether they are _significantly different_ between the conditions.
+
+What do we mean by _significantly_ different?
+
+To answer this question we need to introduce a statistical concept called _hypothesis testing_.
+
+For simplicity, let's assume for now that we want to compare two groups.
+
 ## Statistical tests of hypothesis
 
-## The t-test and linear models
+Hypothesis testing is a formal statistical procedure in which we test which of _two mutually exclusive hypotheses are true_.
+
+Importantly, the two hypotheses are not treated equally, but each has a different role.
+
+The _null hypothesis_, denoted with $H_0$, represents the \textit{status quo}, or the expected
+result that we want to accept as true if the data provides no convincing evidence against it.
+
+The _alternative hypothesis_, denoted with $H_1$ is a statement about an effect that we want to prove.
+
+## Hypothesis testing in RNA-seq
+
+In RNA-seq, we want to simultaneously test tens of thousands of hypotheses (one for each gene).
+
+For each gene, the hypotheses are:
+
+- H_0: the gene is expressed at the same level in both groups.
+- H_1: the gene is _differentially expressed_ between the two groups.
+
+## Assumptions
+
+As with all statistical models, we need a few _assumptions_ to be able to perform the test.
+
+In particular, we need to specify the _data generating distribution_.
+
+For instance, if we assume that the data are distributed as a Gaussian random variable, we can use _linear regression models_ and _t-tests_.
+
+## Nature of RNA-seq data
+
+For each gene, we _count_ how many reads can be mapped to a particular sequence.
+
+The Gaussian distribution is a very general model to describe _continuous data_, such as the height of adults in the population.
+
+Since we have counts, we will need an alternative distribution.
 
 ## The Poisson Model
 
@@ -125,7 +365,7 @@ When statisticians see counts, they immediately think about Simeon Poisson.
 
 The Poisson distribution naturally arises from binomial calculations, with a large number of trials and a small probability.
 
-It has a rather stringent assumption: **the variance is equal to the mean**!
+However, it has a rather stringent assumption: **the variance is equal to the mean**!
 
 $$
 Var(Y_{ij}) = \mu_{ij}
@@ -163,17 +403,327 @@ where $\phi$ is called the **dispersion parameter**.
 
 Both `edgeR` and `DESeq2` assume that the data is distributed as a negative binomial.
 
-## Differential expression in R: `DESeq2`
+## The Negative Binomial Model
+
+If we want to use the negative binomial model to fit our data, we need to _estimate_ two parameters:
+
+- The dispersion parameter $\phi_j$
+- And the mean $\mu_{ij}$
+
+After estimating $\phi_j$, we can use a _generalized linear model_ (GLM) to estimate the mean and test for the difference between the groups.
+
+## Generalized Linear Models
+
+GLMs are a generalization of linear models for distributions other than the Gaussian.
+
+For the negative binomial distribution, GLMs take the form of a _log-linear model_, where we model the log of the mean as a linear function of the _covariates_.
+
+## Generalized Linear Models
+
+![](glm.png)
+
+## How to specify the design matrix
+
+The matrix $X$ is called _design matrix_ and it includes
+
+- An _intercept_ (a vector of ones) that captures the overall mean
+- The _biological factors_ that we want to test
+- Possibly, _confounding factors_ that we need to account for in the analysis
+
+In the simplest case of _two group comparison_, X is simply an indicator variable of the group to be compared.
+
+## Example: two group comparison
+
+```{r}
+xx <- droplevels(x[c(1:6)])
+mat <- model.matrix(~xx)
+colnames(mat) <- c("Intercept", "Group2")
+as.data.frame(mat)
+```
+
+## More than two groups
+
+When we have more than two groups, we need more than one indicator.
+
+Imagine we are comparing three groups: CC, FC, RT.
+
+We could use three indicators to describe them: the first to indicate whether the sample is CC or not, the second to indicate if it’s FC or not, the third to indicate if it’s RT or not.
+
+It turns out that we need only two out of the three, since once we know that the sample is not FC or RT, we know that it must be CC.
+
+Because we need two out of three, one of the levels needs to be dropped and act as the reference level. R by default uses the first level as the reference.
+
+## Example: three group comparison
+
+```{r}
+mat <- model.matrix(~x)
+colnames(mat) <- c("Intercept", "FC", "RT")
+as.data.frame(mat)
+```
+
+## Interpreting the parameters
+
+In addition to the design matrix $X$, we have a matrix of parameters $\beta$, that we need to estimate from the data.
+
+These parameters tells us how the genes are expressed between the groups.
+
+We will see how to interpret the parameters in a two-group comparison for simplicity, but things are analogous with multiple groups.
+
+## Interpreting the parameters
+
+Remember our design matrix in the two-group case.
+
+```{r}
+mat <- model.matrix(~xx)
+colnames(mat) <- c("Intercept", "Group2")
+as.data.frame(mat)
+```
+
+In this case, for each gene, the $\beta$ parameter has two components $\beta = [\beta_0 \, \beta_1]$.
+
+## Interpreting the parameters
+
+For a sample in Group 1
+$$
+\log E[Y_ij | X = 0] = \beta_0.
+$$
+
+For a sample in Group 2
+$$
+\log E[Y_ij | X = 1] = \beta_0 + \beta_1
+$$
+
+Hence,
+\begin{align*}
+\log \frac{E[Y_ij | X = 1]}{E[Y_ij | X = 0]} &= \log E[Y_ij | X = 1] - \log E[Y_ij | X = 0] \\
+&= \beta_0 + \beta_1 - \beta_0 = \beta_1.
+\end{align*}
+
+## Interpreting the parameters
+
+This means that $\beta_1$ is the _average log-fold-change between the two groups_.
+
+When we have multiple groups, we will have multiple $\beta$ parameters, each representing the _average log-fold-change_ with respect to the _reference group_.
+
+## Example: interpreting the parameters
+
+```{r}
+y <- DGEList(counts = filtered, group = x)
+y <- calcNormFactors(y)
+design <- model.matrix(~x)
+colnames(design) <- c("Intercept", "FC", "RT")
+y <- estimateDisp(y, design)
+fit <- glmFit(y, design)
+lrt <- glmLRT(fit, coef=2:3)
+topTags(lrt)[,1:2]
+```
+
+## Test for differential expression
+
+For each gene, our test for differential expression involves the following hypotheses.
+
+- H_0: $\beta_1 = 0$;
+- H_1: $\beta_1 \neq 0$.
+
+We can test these hypotheses by using a
+
+- _Likelihood Ratio Test_ (default in `edgeR`);
+- _Wald Test_ (default in `DESeq2`).
+
+These alternative test will produce a _p-value_ that we can compare to a _significance level_ (usually $\alpha = 0.05$).
+
+If the p-value is less than $0.05$ we _reject the null hypothesis_, hence declaring the gene _differentially expressed_.
+
+## Adjusting for multiple testing
+
+Even if the null hypothesis is true, our test can still reject it.
+
+This is called _type I error_, i.e., to reject the null hypothesis when it is true.
+
+Suppose that $\alpha = 0.05$, and that the null hypothesis is indeed true. 
+
+If we perform two independent tests, the probability of finding at least one (false) positive result is $1 - 0.95^2 \approx 0.1$.
+
+If we perform 20 tests, the probability of finding at least one (false) positive result is $1 - 0.95^{20} \approx 0.64$. 
+
+That means that we have $64\%$ probability to declare something as significant even though $H_0$ is true! 
+
+We are testing thousands of genes!
+
+## Adjusting for multiple testing
+
+There are procedures, called _multiple testing procedures_, that can be used to _adjust the p-values_ for multiplicity.
+
+Here, we briefly cover the _Benjamini-Hochberg procedure_ to control the _False Discovery Rate_ (FDR).
+
+## The False Discovery Rate
+
+The False Discovery Rate (FDR) is defined as the _expected proportion of false discoveries_ amongst the rejected null hypotheses.
+
+In terms of gene expression, this means the expected proportion of non-DE genes wrongly declared as DE.
+
+We usually want to limit this proportion to $5\%$ or $10\%$.
+
+## Example: Differentially Expressed Genes
+
+\tiny
+
+```{r}
+topTags(lrt)
+```
+
+## Example: Differentially Expressed Genes
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = filtered,
+                              colData = data.frame(Condition = x, 
+                                                   Expt = substring(colnames(filtered), 3)),
+                              design = ~ Condition)
+dds <- DESeq(dds)
+res <- results(dds)
+summary(res)
+```
 
 ## Diagnostics: the p-value histogram
 
+To see if the model that we used correctly fit the data, we can check the distribution of the (unadjusted) p-values.
+
+We know from theory that if all the genes are non-DE the distribution of the p-values should be uniform.
+
+For the DE genes, we expect p-values very close to 0.
+
+Hence, we expect to see a mixture of a uniform distribution and a "spike" at zero.
+
+Non-uniform distributions are an indication of batch effects or other _unwanted variation_ that affects the data.
+
+## Example of "good" p-value distribution
+
+```{r}
+top <- topTags(lrt, n = Inf)$table
+hist(top$PValue, xlab="p-value", main="Histogram of p-values")
+```
+
+## Example of "bad" p-value distribution
+
+```{r}
+y <- DGEList(counts = filtered_orig, group = x_orig)
+y <- calcNormFactors(y)
+design <- model.matrix(~x_orig)
+colnames(design) <- c("Intercept", "FC", "RT")
+y <- estimateDisp(y, design)
+fit <- glmFit(y, design)
+lrt <- glmLRT(fit, coef=2:3)
+top_orig <- topTags(lrt, n = Inf)$table
+hist(top_orig$PValue, xlab="p-value", main="Histogram of p-values")
+```
+
 ## Visualizing the results
+
+There are several popular ways to visualize the results, including
+
+- Volcano plots;
+- Heatmaps.
+
+## Volcano plots
+
+```{r}
+de <- rownames(top)[top$FDR <= 0.05]
+plot(top$logFC.FC, -log10(top$PValue), pch=19, col="grey", cex=1.5,
+     xlab = "logFC: FC vs CC", ylab = "-log10(p-value)")
+points(top[de, "logFC.FC"], -log10(top[de, "PValue"]), pch=19, cex=1.5,
+       col=2)
+```
+
+## Heatmaps
+
+```{r}
+library(pheatmap)
+pheatmap(log1p(norm[de[1:100],]), annotation_col = data.frame(group=x),
+         show_rownames = FALSE)
+```
 
 # Batch Effects
 
+## Accounting for batch effects
+
+As for any high-throughput genomic technology, RNA-seq is affected by complex, non-linear effects that are not removed by global scaling normalization.
+
+These effects are collectively known as _batch effects_.
+
 ## Accounting for known batch effects
 
+Sometimes, we know (or suspect) where these effects come from.
+
+For instance, we might have processed the samples in different days, or at a different time of day.
+
+In large collaborative studies, samples might be processed in different labs.
+
+Or we may have used different machines, or protocols.
+
+In these cases, it might be enough to include the appropriate variable in the design matrix to adjust for these _known_ effects.
+
 ## Accounting for unknown batch effects
+
+More often, we do not have a clear idea of which aspect of the data generation introduced the batch effects.
+
+Or it may be a combination of too many factors to all include in the model.
+
+In such cases, we can estimate such effects from the data.
+
+One way to do so is by using the _Remove Unwanted Variation_ (RUV) approach, which uses _negative control genes_ to estimate batch effects from the data.
+
+This approach is implemented in the Bioconductor package `RUVSeq`.
+
+## Example of unwanted variation
+
+```{r}
+norm <- betweenLaneNormalization(filtered_orig, which="upper")
+plotRLE(norm, outline=FALSE, col=colLib)
+```
+
+## Example of unwanted variation
+
+```{r}
+plotPCA(norm, labels=TRUE, col=colLib, cex=1.5)
+```
+
+## Accounting for unwanted variation
+
+Rather than filtering out the unusual samples, we can try to adjust (or normalize) their values using the expression levels of _negative control genes_.
+
+The assumption is that we can identify a set of negative controls that are _not affected by biology_.
+
+Hence, all the signal captured by these genes is _driven by unwanted variation_.
+
+RUV estimates $k$ factors of unwanted variation that can be included in the design matrix for the DE analysis. In this case, we used $k=5$.
+
+## Accounting for unwanted variation
+
+```{r}
+groups <- makeGroups(x)
+ruv <- RUVg(norm, cIdx = negCon, k = 5)
+plotRLE(ruv$normalizedCounts, outline=FALSE, col=colLib)
+```
+
+## Accounting for unwanted variation
+
+```{r}
+plotPCA(ruv$normalizedCounts, labels=TRUE, col=colLib, cex=1.5)
+```
+
+## Differential Expression Analysis
+
+```{r}
+y <- DGEList(counts = filtered_orig, group = x_orig)
+y <- calcNormFactors(y)
+design <- model.matrix(~x_orig + ruv$W)
+colnames(design) <- c("Intercept", "FC", "RT", paste0("W", 1:5))
+y <- estimateDisp(y, design)
+fit <- glmFit(y, design)
+lrt <- glmLRT(fit, coef=2)
+top_ruv <- topTags(lrt, n = Inf)$table
+hist(top_ruv$PValue, xlab="p-value", main="Histogram of p-values")
+```
 
 # Transcript-level analysis
 
