@@ -659,13 +659,13 @@ points(top[de, "logFC.FC"], -log10(top[de, "PValue"]), pch=19, cex=1.5,
        col=2)
 ```
 
-## Heatmaps
+<!-- ## Heatmaps -->
 
-```{r}
-library(pheatmap)
-pheatmap(log1p(norm[de[1:100],]), annotation_col = data.frame(group=x),
-         show_rownames = FALSE)
-```
+<!-- ```{r} -->
+<!-- library(pheatmap) -->
+<!-- pheatmap(log1p(norm[de[1:100],]), annotation_col = data.frame(group=x), -->
+<!--          show_rownames = FALSE) -->
+<!-- ``` -->
 
 ## Diagnostics: the p-value histogram
 
@@ -788,4 +788,8 @@ top_ruv <- topTags(lrt, n = Inf)$table
 hist(top_ruv$PValue, xlab="p-value", main="Histogram of p-values")
 ```
 
+## Thank you for your attention!
 
+_Email_: \url{dar2062@med.cornell.edu}
+
+_Slides and code_: \url{github.com/drisso/canazei}
