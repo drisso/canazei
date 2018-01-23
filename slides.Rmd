@@ -794,13 +794,15 @@ hist(top_ruv$PValue, xlab="p-value", main="Histogram of p-values")
 
 ![](moores-law.png)
 
+\source{Svensson et al. (2017). arXiv.}
+
 ## 10X Genomics
 
 ![](10x.png)
 
 \source{10xgenomics.com}
 
-## 68k PBMCs
+## Cell type discovery
 
 ![](68kpbmc.png)
 
@@ -816,7 +818,7 @@ hist(top_ruv$PValue, xlab="p-value", main="Histogram of p-values")
 
 _The Human Cell Atlas_: cellular map of the human body (expected millions of cells).
 
-_The BRAIN Initiative_: 250k mouse neurons sequenced by 2020.
+_The BRAIN Initiative_: 250k mouse neurons.
 
 $$
 250{,}000 \times 20{,}000 \approx 40 \, \text{GB}
