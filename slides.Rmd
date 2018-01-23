@@ -788,6 +788,67 @@ top_ruv <- topTags(lrt, n = Inf)$table
 hist(top_ruv$PValue, xlab="p-value", main="Histogram of p-values")
 ```
 
+# Single-Cell RNA-seq
+
+## Single-Cell RNA-seq
+
+![](moores-law.png)
+
+## 10X Genomics
+
+![](10x.png)
+
+\source{10xgenomics.com}
+
+## 68k PBMCs
+
+![](68kpbmc.png)
+
+\source{Zheng et al. (2017). Nature Communications.}
+
+## Stem cell differentiation
+
+![](russell.png)
+
+\source{Fletcher et al. (2017). Cell Stem Cell.}
+
+## Computational challenges
+
+_The Human Cell Atlas_: cellular map of the human body (expected millions of cells).
+
+_The BRAIN Initiative_: 250k mouse neurons sequenced by 2020.
+
+$$
+250{,}000 \times 20{,}000 \approx 40 \, \text{GB}
+$$
+
+## Methodological challenges
+
+- _Define/Discover molecular cell types_
+
+\begin{flushright}
+\textit{Bacher and Kendziorski (2016). Genome Biology.}
+\end{flushright}
+
+- _Normalization_
+
+\begin{flushright}
+\textit{Vallejos et al. (2017). Nature Methods.}
+\end{flushright}
+
+- _Identify marker genes_
+
+\begin{flushright}
+\textit{Van den Berge et al. (2018). bioRxiv.}
+\end{flushright}
+
+- _High-level analysis_
+
+\begin{flushright}
+\textit{Wagner et al. (2016). Nature Biotechnology.}
+\end{flushright}
+
+
 ## Thank you for your attention!
 
 _Email_: \url{dar2062@med.cornell.edu}
