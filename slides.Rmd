@@ -22,28 +22,6 @@ library(RUVSeq)
 library(edgeR)
 ```
 
-## What we will cover
-
-I will give you a _brief_ introduction to the _statistical analysis of RNA-seq_.
-
-We will focus on differential expression analysis using _R/Bioconductor_.
-
-We will start from a _matrix of gene-level read counts_.
-
-We will cover the two most popular packages, `DESeq2` and `edgeR`.
-
-I will also show you how to deal with unwanted variation using the `RUVSeq` package.
-
-## What we will not cover
-
-I will not show you the R code, but _focus on the statistical concepts_.
-
-The R code that I used for the plots in these slides is available online at [https://github.com/drisso/canazei](github.com/drisso/canazei).
-
-Only in Bioconductor, there are 150 packages for QC/EDA, 69 for normalization, and 241 for differential expression! 
-
-Hence, this is not a comprehensive account on how to perform these steps, but rather an _introduction to the statistical methods_ behind some of them.
-
 ## Useful links
 
 - These slides: [https://github.com/drisso/canazei](github.com/drisso/canazei)
@@ -105,7 +83,7 @@ colors <- brewer.pal(9, "Set1")
 colLib <- colors[x]
 ```
 
-## Exploratory Data Analysis (EDA)
+## Graphical summaries
 
 \centering
 \includegraphics[width=\linewidth]{pie_chart}
@@ -245,18 +223,18 @@ Several experimental sources of systematic biases affect measurements of gene ex
 
 We need to _normalize_ the data for gene- and sample-specific biases. 
 
-## Gene- and Sample-specific effects
+<!-- ## Gene- and Sample-specific effects -->
 
-![](normalization.png)
+<!-- ![](normalization.png) -->
 
-\source{Vallejos et al. (2017). Nature Methods}
+<!-- \source{Vallejos et al. (2017). Nature Methods} -->
 
 ## Normalization
 
 We distinguish between two types of normalization:
 
 - _within-sample normalization_ removes gene-specific biases (e.g., due to GC-content)
-- _between-sample normalization_ adjusts for effects related to distribu- tional differences in read counts between samples.
+- _between-sample normalization_ adjusts for effects related to distributional differences in read counts between samples.
 
 ## Between-sample normalization
 
@@ -540,7 +518,7 @@ $$
 
 $\beta_1$: _average log-fold-change between the two groups_.
 
-When more than three groups: each $\beta$ is the _average log-fold-change_ with respect to the _reference group_.
+When more than two groups: each $\beta$ is the _average log-fold-change_ with respect to the _reference group_.
 
 ## Example: interpreting the parameters
 
@@ -595,7 +573,7 @@ Here, we briefly cover the _Benjamini-Hochberg procedure_ to control the _False 
 
 ## The False Discovery Rate
 
-The False Discovery Rate (FDR) is defined as the _expected proportion of false discoveries_ amongst the rejected null hypotheses.
+The False Discovery Rate (FDR) is defined as the _expected proportion of false discoveries_ among the rejected null hypotheses.
 
 In terms of gene expression, this means the expected proportion of non-DE genes wrongly declared as DE.
 
